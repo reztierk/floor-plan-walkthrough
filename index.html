@@ -63,7 +63,7 @@
   <header class="glass">
     <p class="eyebrow">From plan to space</p>
     <h1>A home, in three dimensions.</h1>
-    <p class="sub">Approximate reconstruction · 21′7″ main width<br>Bathroom extended 5′ with standing shower<br>Kitchen connected to side room · Open doors<br>Laundry opening inferred; not shown in reference.</p>
+    <p class="sub">Approximate reconstruction · 21′7″ main width<br>Bathroom extended 5′ · Centered sliding-door shower<br>Wall shower + ceiling rain head · Doors shown open<br>Kitchen connected to side room<br>Laundry opening inferred; not shown in reference.</p>
   </header>
   <aside id="map-panel" class="glass" aria-label="Floor plan minimap">
     <canvas id="map" width="268" height="392" aria-label="Layout and current position"></canvas>
@@ -343,22 +343,59 @@
       cylinder(furniture, X(96), .495, Z(818), .145, .008, m.dark);
       const showerLeft = bathroomLeft + 6;
       const showerRight = showerLeft + 1.05 / scale;
-      const showerTop = 790;
-      const showerBottom = showerTop + 1.2 / scale;
+      const showerCenter = (785 + 932) / 2;
+      const showerTop = showerCenter - .9 / scale;
+      const showerBottom = showerCenter + .9 / scale;
+      const showerTile = mat('#414846');
+      const showerGrout = mat('#69706b');
       planBox(furniture, showerLeft, showerTop, showerRight, showerBottom, .008, .025, m.white);
-      planBox(furniture, showerLeft, showerTop, showerLeft + 2, showerBottom, .033, 2.15, m.tile);
-      for (const z of [showerTop, showerBottom]) {
-        planBox(furniture, showerLeft, z, showerRight, z + 1, .033, 2.05, m.glass, true);
-        planBox(furniture, showerLeft, z, showerRight, z + 1, 2.083, .025, m.metal);
-        planBox(furniture, showerRight - 1, z, showerRight + 1, z + 1, .033, 2.05, m.metal);
+      planBox(furniture, showerLeft, showerTop, showerLeft + 2, showerBottom, .033, 2.3, showerTile, true);
+      for (let y = .033; y < 2.33; y += .3) {
+        planBox(furniture, showerLeft + 2, showerTop, showerLeft + 2.1, showerBottom, y, .004, showerGrout);
       }
-      // A short fixed screen leaves the shower's right side open toward the bathroom door.
-      planBox(furniture, showerRight, showerTop, showerRight + 1, showerTop + 18, .033, 2.05, m.glass, true);
-      cylinder(furniture, X(showerLeft + 4), 1.25, Z(823), .018, 1.65, m.metal);
-      box(furniture, X(showerLeft + 11), 2.065, Z(823), .25, .025, .025, m.metal);
-      cylinder(furniture, X(showerLeft + 18), 2.045, Z(823), .13, .035, m.metal);
-      box(furniture, X(showerLeft + 6), 1.05, Z(823), .07, .13, .16, m.metal);
-      cylinder(furniture, X(showerLeft + 29), .036, Z(823), .045, .006, m.metal);
+      for (let z = showerTop + .6 / scale; z < showerBottom; z += .6 / scale) {
+        planBox(furniture, showerLeft + 2, z, showerLeft + 2.1, z + .2, .033, 2.3, showerGrout);
+      }
+      for (const z of [showerTop, showerBottom]) {
+        planBox(furniture, showerLeft, z, showerRight, z + 1, .033, 2.18, m.glass, true);
+        planBox(furniture, showerLeft, z, showerRight, z + 1, 2.213, .025, m.metal);
+        planBox(furniture, showerRight - 1, z, showerRight + 1, z + 1, .033, 2.18, m.metal);
+      }
+      // Sliding leaves overlap the fixed panels at either end, leaving a central entry.
+      const panelLength = .43 / scale;
+      for (const [z1, z2] of [[showerTop, showerTop + panelLength], [showerBottom - panelLength, showerBottom]]) {
+        planBox(furniture, showerRight, z1, showerRight + .8, z2, .033, 2.18, m.glass, true);
+        planBox(furniture, showerRight - 1.8, z1, showerRight - 1, z2, .045, 2.15, m.glass, true);
+        const handleZ = z1 === showerTop ? z2 - 3 : z1 + 3;
+        box(furniture, X(showerRight + 2.5), 1.05, Z(handleZ), .025, .32, .025, m.metal);
+        for (const y of [.91, 1.19]) {
+          box(furniture, X(showerRight + 1.5), y, Z(handleZ), .06, .015, .015, m.metal);
+        }
+      }
+      for (const y of [.035, 2.22]) {
+        planBox(furniture, showerRight - 2, showerTop, showerRight + 1, showerBottom, y, .025, m.metal);
+      }
+      const wallHeadZ = showerCenter - .46 / scale;
+      cylinder(furniture, X(showerLeft + 4), 1.4, Z(wallHeadZ), .018, 1.35, m.metal);
+      box(furniture, X(showerLeft + 8), 2.06, Z(wallHeadZ), .2, .025, .025, m.metal);
+      const wallHead = cylinder(furniture, X(showerLeft + 14), 2.01, Z(wallHeadZ), .095, .035, m.metal);
+      wallHead.rotation.z = Math.PI / 2 - .35;
+      box(furniture, X(showerLeft + 4), 1.03, Z(wallHeadZ), .065, .15, .18, m.metal);
+      const rainHeadX = (showerLeft + showerRight) / 2;
+      cylinder(furniture, X(rainHeadX), (wallHeight + 2.27) / 2, Z(showerCenter), .019, wallHeight - 2.27, m.metal);
+      cylinder(furniture, X(rainHeadX), wallHeight - .014, Z(showerCenter), .065, .028, m.metal);
+      box(furniture, X(rainHeadX), 2.25, Z(showerCenter), .36, .035, .36, m.metal);
+      box(furniture, X(rainHeadX), 2.23, Z(showerCenter), .32, .008, .32, m.black);
+      for (const x of [-.1, 0, .1]) for (const z of [-.1, 0, .1]) {
+        cylinder(furniture, X(rainHeadX) + x, 2.224, Z(showerCenter) + z, .012, .008, m.metal);
+      }
+      cylinder(furniture, X(showerLeft + 29), .036, Z(showerCenter), .045, .006, m.metal);
+      for (const y of [1.1, 1.45]) {
+        planBox(furniture, showerLeft + 2, showerCenter + 28, showerLeft + 10, showerCenter + 45, y, .035, m.black);
+      }
+      for (const z of [showerCenter + 32, showerCenter + 40]) {
+        cylinder(furniture, X(showerLeft + 6), 1.23, Z(z), .035, .22, m.white);
+      }
 
       function plant(px, pz) {
         cylinder(furniture, X(px), .18, Z(pz), .17, .36, mat('#9b7660'));

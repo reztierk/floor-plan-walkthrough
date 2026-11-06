@@ -1,6 +1,6 @@
 # Floor plan walkthrough
 
-An interactive Three.js reconstruction of a floor plan, with a five-foot bathroom extension, standing shower, and an interior kitchen-to-side-room doorway.
+An interactive Three.js reconstruction of a floor plan, with a five-foot bathroom extension and an interior kitchen-to-side-room doorway. The bathroom has a centered 1.8 m wide by 1.05 m deep, dark-tiled walk-in shower with glass sliding doors, a wall-mounted shower head, and a ceiling-mounted rain head. Sliding doors are shown parked open for walkthrough access; the roof is omitted but the ceiling-head mount remains visible.
 
 **[Open the public walkthrough](https://reztierk.github.io/floor-plan-walkthrough/)**
 
