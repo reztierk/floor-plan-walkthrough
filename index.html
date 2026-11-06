@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#192d2b">
+  <title>Floor plan | 3D walkthrough</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; overflow: hidden; background: #cdd6d0; color: #f5f6ed; }
+    button, input { font: inherit; }
+    button { cursor: pointer; color: inherit; border: 1px solid #ffffff30; border-radius: 12px; background: #ffffff0c; padding: 10px 16px; min-height: 44px; }
+    button:hover, button[aria-pressed="true"] { background: #b5d3b8; color: #173029; border-color: #b5d3b8; }
+    button:focus-visible, input:focus-visible { outline: 3px solid #d9e9ab; outline-offset: 3px; }
+    #viewport { display: block; width: 100vw; height: 100dvh; touch-action: none; }
+    .glass { background: #192d2bef; border: 1px solid #ffffff20; box-shadow: 0 12px 40px #162b2520; backdrop-filter: blur(16px); }
+    header { position: absolute; top: max(20px, env(safe-area-inset-top)); left: max(20px, env(safe-area-inset-left)); border-radius: 18px; padding: 18px 22px; max-width: calc(100vw - 40px); pointer-events: none; }
+    .eyebrow { font-size: 10px; letter-spacing: .22em; text-transform: uppercase; color: #b7c9b7; margin: 0 0 7px; }
+    h1 { font-size: 23px; font-weight: 550; margin: 0; letter-spacing: -.04em; }
+    .sub { color: #c1cdc2; font-size: 12px; margin: 8px 0 0; line-height: 1.5; }
+    #toolbar { position: absolute; left: 50%; bottom: max(22px, env(safe-area-inset-bottom)); transform: translateX(-50%); border-radius: 18px; padding: 8px; display: flex; gap: 6px; align-items: center; }
+    #toolbar button { white-space: nowrap; }
+    #furniture-label { display: flex; gap: 8px; align-items: center; padding: 8px; font-size: 12px; cursor: pointer; }
+    input { accent-color: #b5d3b8; width: 16px; height: 16px; }
+    #guide { position: absolute; left: 24px; bottom: 104px; font-size: 12px; color: #283e37; background: #f9faf0d9; padding: 10px 14px; border-radius: 12px; max-width: 360px; line-height: 1.65; pointer-events: none; }
+    kbd { font: inherit; font-weight: 650; }
+    #map-panel { position: absolute; right: max(20px, env(safe-area-inset-right)); top: max(20px, env(safe-area-inset-top)); padding: 14px; border-radius: 18px; }
+    #map { width: 134px; height: 196px; display: block; }
+    #room { text-align: center; font-size: 11px; color: #cedbca; margin-top: 10px; }
+    #crosshair { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; border-radius: 50%; background: #ffffffb0; box-shadow: 0 0 2px #000; transform: translate(-50%, -50%); pointer-events: none; display: none; }
+    #status { position: absolute; inset: 0; display: grid; place-items: center; background: #192d2bf0; z-index: 10; padding: 24px; }
+    #status[hidden] { display: none; }
+    #status div { max-width: 430px; text-align: center; }
+    #status h2 { font-weight: 500; }
+    #status p { color: #d0d9cc; line-height: 1.6; }
+    #touch-controls { display: none; position: absolute; inset: 0; pointer-events: none; }
+    .pad { position: absolute; left: max(20px, env(safe-area-inset-left)); bottom: max(105px, calc(env(safe-area-inset-bottom) + 95px)); display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); gap: 4px; pointer-events: auto; }
+    .pad button { padding: 0; font-size: 24px; background: #192d2bd9; color: #fff; border-radius: 14px; touch-action: none; user-select: none; -webkit-user-select: none; }
+    .pad button.active { background: #b5d3b8; color: #173029; }
+    [data-move="forward"] { grid-column: 2; }
+    [data-move="left"] { grid-column: 1; grid-row: 2; }
+    [data-move="back"] { grid-column: 2; grid-row: 2; }
+    [data-move="right"] { grid-column: 3; grid-row: 2; }
+    #look-hint { position: absolute; bottom: 148px; right: 24px; color: #fff; font-size: 12px; background: #192d2ba8; padding: 10px 14px; border-radius: 12px; }
+    @media (any-pointer: coarse), (max-width: 800px) { body.walking #touch-controls { display: block; } body.walking #guide { display: none; } }
+    @media (max-width: 640px) {
+      header { top: max(12px, env(safe-area-inset-top)); left: 12px; padding: 14px 16px; max-width: calc(100vw - 135px); }
+      h1 { font-size: 19px; } header .sub { display: none; }
+      #map-panel { right: 12px; top: max(12px, env(safe-area-inset-top)); padding: 8px; }
+      #map { width: 90px; height: 132px; } #room { font-size: 9px; margin-top: 4px; }
+      #toolbar { bottom: max(12px, env(safe-area-inset-bottom)); width: calc(100vw - 24px); display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 6px; }
+      #toolbar button { padding: 8px 10px; font-size: 12px; }
+      #furniture-label { grid-column: 2 / 4; justify-content: center; padding: 5px; font-size: 11px; gap: 4px; }
+      #guide { left: 12px; bottom: 132px; max-width: calc(100vw - 24px); font-size: 11px; }
+      .pad { bottom: max(155px, calc(env(safe-area-inset-bottom) + 145px)); }
+      #look-hint { bottom: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="viewport" tabindex="0" aria-label="Interactive three-dimensional floor plan"></canvas>
+  <header class="glass">
+    <p class="eyebrow">From plan to space</p>
+    <h1>A home, in three dimensions.</h1>
+    <p class="sub">Approximate reconstruction · 21′7″ main width<br>Bathroom extended 5′ with standing shower<br>Kitchen connected to side room · Open doors<br>Laundry opening inferred; not shown in reference.</p>
+  </header>
+  <aside id="map-panel" class="glass" aria-label="Floor plan minimap">
+    <canvas id="map" width="268" height="392" aria-label="Layout and current position"></canvas>
+    <div id="room" aria-live="polite">Whole home</div>
+  </aside>
+  <nav id="toolbar" class="glass" aria-label="View controls">
+    <button id="overview" aria-pressed="true" title="Angled dollhouse view">Overview</button>
+    <button id="top" aria-pressed="false" title="Straight-down floor plan">Top down</button>
+    <button id="walk" aria-pressed="false" title="Enter first-person view">Walk inside</button>
+    <button id="reset" title="Reset the current view">Reset</button>
+    <label id="furniture-label"><input id="furniture" type="checkbox" checked>Furniture</label>
+  </nav>
+  <div id="guide">Drag to orbit · Scroll or pinch to zoom · Choose <kbd>Walk inside</kbd> to explore.</div>
+  <div id="crosshair"></div>
+  <div id="touch-controls" aria-label="Touch navigation">
+    <div class="pad" aria-label="Movement">
+      <button data-move="forward" aria-label="Move forward">↑</button>
+      <button data-move="left" aria-label="Strafe left">←</button>
+      <button data-move="back" aria-label="Move backward">↓</button>
+      <button data-move="right" aria-label="Strafe right">→</button>
+    </div>
+    <div id="look-hint">Drag the view to look</div>
+  </div>
+  <div id="status" role="status"><div><p class="eyebrow">Floor plan walkthrough</p><h2 id="status-title">Building your space…</h2><p id="status-message">Loading Three.js. An internet connection is needed for the pinned library.</p></div></div>
+  <script type="module">
+    const status = document.querySelector('#status');
+    function reportError(message, error) {
+      console.error(message, error);
+      document.querySelector('#status-title').textContent = 'Unable to open the walkthrough';
+      document.querySelector('#status-message').textContent = message;
+      status.hidden = false;
+    }
+    try {
+      const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js');
+      init(THREE);
+    } catch (error) {
+      reportError('Three.js or WebGL could not initialize. Check your internet connection and use a browser with WebGL 2 / hardware acceleration enabled. ' + error.message, error);
+    }
+
+    function init(T) {
+      const canvas = document.querySelector('#viewport');
+      const renderer = new T.WebGLRenderer({ canvas, antialias: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = T.PCFSoftShadowMap;
+      renderer.outputColorSpace = T.SRGBColorSpace;
+      renderer.toneMapping = T.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      const scene = new T.Scene();
+      scene.background = new T.Color('#cdd6d0');
+      const camera = new T.PerspectiveCamera(55, 1, 0.05, 160);
+      camera.rotation.order = 'YXZ';
+      const topCamera = new T.OrthographicCamera(-8, 8, 10, -10, 0.1, 100);
+      const structure = new T.Group();
+      const furniture = new T.Group();
+      const labels = new T.Group();
+      scene.add(structure, furniture, labels);
+
+      // Coordinates trace the supplied plan; its 371 px span is labeled 21 feet 7 inches.
+      const scale = (21 + 7 / 12) * 0.3048 / 371;
+      const X = x => (x - 171) * scale;
+      const Z = z => (z - 190) * scale;
+      const bathroomLeft = 60 - 5 * 0.3048 / scale;
+      const wallHeight = 2.65;
+      const wallThickness = 0.13;
+      const colliders = [];
+      const wallLines = [];
+      const mat = (color, roughness = .8, metalness = 0) => new T.MeshStandardMaterial({ color, roughness, metalness });
+      const m = {
+        wall: mat('#eee9df'), edge: mat('#586f66'), white: mat('#f4f1e8'),
+        wood: mat('#aa7d50'), oak: mat('#d8b98b'), dark: mat('#354842'),
+        sage: mat('#829c89'), fabric: mat('#d6d2bf'), pillow: mat('#e9e5d5'),
+        metal: mat('#909b9b', .3, .65), black: mat('#202827', .4),
+        tile: mat('#b7c8bd'), glass: new T.MeshPhysicalMaterial({ color: '#a8d3dd', transparent: true, opacity: .24, roughness: .1, metalness: .1, side: T.DoubleSide }),
+      };
+      function box(parent, x, y, z, w, h, d, material, collide = false) {
+        const mesh = new T.Mesh(new T.BoxGeometry(w, h, d), material);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        parent.add(mesh);
+        if (collide) colliders.push({ x1: x - w / 2, x2: x + w / 2, z1: z - d / 2, z2: z + d / 2, furniture: parent === furniture });
+        return mesh;
+      }
+      function planBox(parent, x1, z1, x2, z2, bottom, height, material, collide = false) {
+        return box(parent, X((x1 + x2) / 2), bottom + height / 2, Z((z1 + z2) / 2), (x2 - x1) * scale, height, (z2 - z1) * scale, material, collide);
+      }
+      function cylinder(parent, x, y, z, radius, height, material) {
+        const mesh = new T.Mesh(new T.CylinderGeometry(radius, radius, height, 24), material);
+        mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; parent.add(mesh);
+        return mesh;
+      }
+      function wall(x1, z1, x2, z2, bottom = 0, height = wallHeight, collision = true) {
+        const horizontal = z1 === z2;
+        box(structure, X((x1 + x2) / 2), bottom + height / 2, Z((z1 + z2) / 2),
+          horizontal ? Math.abs(x2 - x1) * scale + wallThickness : wallThickness,
+          height, horizontal ? wallThickness : Math.abs(z2 - z1) * scale + wallThickness, m.wall, collision);
+        if (bottom === 0 && height === wallHeight) {
+          wallLines.push([x1, z1, x2, z2]);
+          box(structure, X((x1 + x2) / 2), wallHeight + .015, Z((z1 + z2) / 2),
+            horizontal ? Math.abs(x2 - x1) * scale + wallThickness : wallThickness,
+            .035, horizontal ? wallThickness + .012 : Math.abs(z2 - z1) * scale + wallThickness + .012, m.edge);
+          box(structure, X((x1 + x2) / 2), .055, Z((z1 + z2) / 2),
+            horizontal ? Math.abs(x2 - x1) * scale : wallThickness + .02,
+            .11, horizontal ? wallThickness + .02 : Math.abs(z2 - z1) * scale, m.white);
+        }
+      }
+      function opening(x1, z1, x2, z2, kind = 'door') {
+        const horizontal = z1 === z2;
+        const length = Math.hypot(x2 - x1, z2 - z1) * scale;
+        const centerX = X((x1 + x2) / 2), centerZ = Z((z1 + z2) / 2);
+        const sill = kind === 'window' ? .9 : 0;
+        const lintel = 2.18;
+        wall(x1, z1, x2, z2, lintel, wallHeight - lintel, false);
+        if (sill) wall(x1, z1, x2, z2, 0, sill, true);
+        const frameMaterial = kind === 'door' ? m.oak : m.white;
+        for (const [px, pz] of [[x1, z1], [x2, z2]]) {
+          box(structure, X(px), (lintel + sill) / 2, Z(pz), horizontal ? .055 : .17, lintel - sill, horizontal ? .17 : .055, frameMaterial);
+        }
+        box(structure, centerX, lintel, centerZ, horizontal ? length : .17, .055, horizontal ? .17 : length, frameMaterial);
+        if (kind === 'window') {
+          box(structure, centerX, (sill + lintel) / 2, centerZ, horizontal ? length : .018, lintel - sill, horizontal ? .018 : length, m.glass);
+          box(structure, centerX, (sill + lintel) / 2, centerZ, horizontal ? .035 : .16, lintel - sill, horizontal ? .16 : .035, m.white);
+          box(structure, centerX, sill, centerZ, horizontal ? length + .08 : .23, .065, horizontal ? .23 : length + .08, m.white);
+        } else if (kind === 'slider') {
+          // Park the glass leaves against the jambs, leaving the center clear.
+          for (const fraction of [.16, .84]) {
+            const px = X(x1 + (x2 - x1) * fraction), pz = Z(z1 + (z2 - z1) * fraction);
+            box(structure, px, lintel / 2, pz, horizontal ? length * .28 : .028, lintel - .08, horizontal ? .028 : length * .28, m.glass);
+          }
+        } else {
+          const door = box(structure, X(x1), 1.02, Z(z1), .045, 2.04, length * .85, m.oak);
+          if (horizontal) door.position.z += length * .425;
+          else { door.rotation.y = Math.PI / 2; door.position.x += length * .425; }
+        }
+      }
+
+      function woodTexture() {
+        const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+        const ctx = c.getContext('2d');
+        let seed = 17;
+        const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+        for (let row = 0; row < 8; row++) {
+          const y = row * 64;
+          ctx.fillStyle = `hsl(34, 32%, ${65 + random() * 9}%)`;
+          ctx.fillRect(0, y, 512, 64);
+          ctx.fillStyle = '#72543530'; ctx.fillRect(0, y, 512, 1);
+          const joint = (row % 3) * 170 + 50;
+          ctx.fillRect(joint, y, 1, 64);
+          for (let i = 0; i < 35; i++) {
+            ctx.fillStyle = `rgba(90,65,38,${.02 + random() * .055})`;
+            ctx.fillRect(random() * 512, y + random() * 64, 50 + random() * 300, .7);
+          }
+        }
+        const texture = new T.CanvasTexture(c); texture.colorSpace = T.SRGBColorSpace;
+        texture.wrapS = texture.wrapT = T.RepeatWrapping; texture.repeat.set(3, 7);
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        return new T.MeshStandardMaterial({ map: texture, roughness: .8 });
+      }
+      const floorMat = woodTexture();
+      planBox(structure, 171, 190, 539, 932, -.16, .16, floorMat);
+      planBox(structure, 539, 190, 656, 469, -.16, .16, m.tile);
+      planBox(structure, bathroomLeft, 785, 171, 932, -.16, .16, m.tile);
+      for (let x = bathroomLeft; x < 171; x += 22) for (let z = 785; z < 932; z += 22) {
+        planBox(structure, x, z, Math.min(x + 21.5, 171), Math.min(z + 21.5, 932), .002, .006, m.white);
+      }
+      box(scene, 3, -.32, 6, 25, .3, 27, mat('#becbbf'));
+      planBox(scene, 540, 470, 718, 754, -.14, .08, mat('#c8c1ac'));
+
+      wall(171, 190, 184, 190); opening(184, 190, 236, 190);
+      wall(236, 190, 365, 190); opening(365, 190, 482, 190, 'window');
+      wall(482, 190, 656, 190);
+      wall(171, 190, 171, 785); wall(171, 785, 171, 797);
+      opening(171, 797, 171, 849); wall(171, 849, 171, 932);
+      wall(bathroomLeft, 785, 171, 785); wall(bathroomLeft, 785, bathroomLeft, 932); wall(bathroomLeft, 932, 539, 932);
+      wall(539, 190, 539, 328); opening(539, 328, 539, 386);
+      wall(539, 386, 539, 506); opening(539, 506, 539, 554, 'slider');
+      wall(539, 554, 539, 740); opening(539, 740, 539, 796, 'window');
+      wall(539, 796, 539, 932);
+      wall(656, 190, 656, 283); opening(656, 283, 656, 342, 'window');
+      wall(656, 342, 656, 469);
+      wall(539, 469, 574, 469); opening(574, 469, 626, 469);
+      wall(626, 469, 656, 469);
+      wall(292, 626, 500, 626);
+      wall(292, 626, 292, 798); opening(292, 798, 292, 850);
+      wall(292, 850, 292, 932);
+      wall(339, 626, 339, 779); wall(292, 779, 339, 779);
+      wall(171, 858, 184, 858); opening(184, 858, 280, 858, 'slider');
+      wall(280, 858, 348, 858);
+      opening(348, 858, 418, 858);
+      wall(418, 858, 443, 858); opening(443, 858, 514, 858);
+      wall(514, 858, 539, 858);
+
+      // Kitchen follows the top and right edges of the open room.
+      planBox(furniture, 247, 202, 500, 232, 0, .88, m.sage, true);
+      planBox(furniture, 500, 232, 531, 319, 0, .88, m.sage, true);
+      planBox(furniture, 247, 201, 500, 233, .88, .055, m.white);
+      planBox(furniture, 499, 232, 532, 320, .88, .055, m.white);
+      for (let x = 310; x < 490; x += 38) {
+        planBox(furniture, x, 233, x + 32, 234, .11, .65, m.sage);
+        planBox(furniture, x + 9, 234, x + 23, 236, .74, .018, m.metal);
+      }
+      planBox(furniture, 263, 203, 313, 242, 0, 1.77, m.white, true);
+      planBox(furniture, 265, 242, 311, 244, 1.2, .012, m.metal);
+      planBox(furniture, 306, 244, 308, 246, .36, .64, m.metal);
+      planBox(furniture, 362, 205, 412, 229, .934, .016, m.metal);
+      planBox(furniture, 365, 208, 384, 226, .949, .009, m.dark);
+      planBox(furniture, 390, 208, 409, 226, .949, .009, m.dark);
+      cylinder(furniture, X(387), 1.01, Z(208), .017, .18, m.metal);
+      box(furniture, X(387), 1.1, Z(214), .033, .035, .2, m.metal);
+      planBox(furniture, 503, 273, 529, 315, .94, .025, m.black);
+      for (const x of [510, 522]) for (const z of [282, 303]) {
+        cylinder(furniture, X(x), .958, Z(z), .072, .012, m.metal);
+        cylinder(furniture, X(x), .967, Z(z), .044, .01, m.black);
+      }
+      planBox(furniture, 501, 274, 531, 315, 1.95, .16, m.white);
+
+      function shelf(x, z, width, depth) {
+        planBox(furniture, x, z, x + width, z + depth, 0, .1, m.oak, true);
+        for (const edge of [x, x + width - 2]) planBox(furniture, edge, z, edge + 2, z + depth, 0, 1.15, m.oak);
+        for (const y of [.4, .75, 1.12]) planBox(furniture, x, z, x + width, z + depth, y, .035, m.oak);
+        for (let i = 0; i < 7; i++) {
+          planBox(furniture, x + 4 + i * 2, z + 3, x + 5.5 + i * 2, z + depth - 3, .785, .22 + i % 3 * .025, i % 2 ? m.sage : m.fabric);
+        }
+      }
+      shelf(178, 278, 22, 96); shelf(178, 650, 22, 100);
+      planBox(furniture, 260, 344, 449, 430, .007, .009, mat('#c3c3a5'));
+      planBox(furniture, 309, 356, 392, 409, .73, .065, m.oak, true);
+      for (const x of [316, 385]) for (const z of [363, 402]) cylinder(furniture, X(x), .36, Z(z), .035, .72, m.dark);
+      function chair(x, z, rotation = 0) {
+        const group = new T.Group(); group.position.set(X(x), 0, Z(z)); group.rotation.y = rotation; furniture.add(group);
+        box(group, 0, .46, 0, .46, .065, .45, m.sage);
+        box(group, 0, .7, .2, .46, .48, .06, m.oak);
+        for (const a of [-.18, .18]) for (const b of [-.16, .16]) box(group, a, .22, b, .035, .44, .035, m.dark);
+      }
+      chair(350, 334, Math.PI); chair(350, 431); chair(286, 381, -Math.PI / 2); chair(418, 381, Math.PI / 2);
+      planBox(furniture, 311, 478, 478, 601, .01, .016, mat('#d4cdb6'));
+      planBox(furniture, 327, 479, 453, 520, .08, .37, m.fabric, true);
+      planBox(furniture, 327, 520, 365, 550, .08, .37, m.fabric, true);
+      planBox(furniture, 326, 474, 454, 483, .3, .55, m.fabric);
+      for (const x of [327, 444]) planBox(furniture, x, 483, x + 9, 518, .25, .4, m.fabric);
+      for (const x of [337, 373, 409]) planBox(furniture, x, 484, x + 31, 516, .44, .09, m.pillow);
+      planBox(furniture, 366, 561, 421, 587, .38, .05, m.oak, true);
+      for (const x of [370, 416]) planBox(furniture, x, 564, x + 2, 584, 0, .38, m.dark);
+      planBox(furniture, 391, 614, 475, 622, 0, .36, m.oak, true);
+      planBox(furniture, 403, 620, 463, 624, .5, .62, m.black);
+      planBox(furniture, 406, 624, 460, 625, .54, .54, mat('#526967', .35));
+      planBox(furniture, 405, 677, 531, 809, .01, .01, mat('#c0b9a0'));
+      planBox(furniture, 411, 691, 529, 802, .1, .27, m.oak, true);
+      planBox(furniture, 414, 694, 526, 801, .37, .25, m.pillow);
+      planBox(furniture, 494, 691, 531, 804, .12, .95, m.oak);
+      planBox(furniture, 417, 696, 491, 798, .62, .055, m.sage);
+      for (const z of [701, 752]) planBox(furniture, 495, z, 519, z + 40, .62, .11, m.white);
+      planBox(furniture, 487, 653, 530, 682, 0, .46, m.oak, true);
+      cylinder(furniture, X(510), .58, Z(666), .07, .21, m.metal);
+      cylinder(furniture, X(510), .77, Z(666), .17, .21, m.white);
+      // Storage niche, laundry, and bedroom wardrobe.
+      for (const y of [.55, 1.1, 1.65, 2.15]) planBox(furniture, 297, 633, 333, 774, y, .04, m.oak);
+      for (const x of [192, 241]) {
+        planBox(furniture, x, 884, x + 39, 923, 0, .9, m.white, true);
+        const drum = cylinder(furniture, X(x + 19.5), .47, Z(882), .23, .035, m.metal);
+        drum.rotation.x = Math.PI / 2;
+        const window = cylinder(furniture, X(x + 19.5), .47, Z(880), .18, .04, m.black);
+        window.rotation.x = Math.PI / 2;
+      }
+      planBox(furniture, 300, 913, 530, 925, 1.85, .045, m.oak);
+      for (let x = 313; x < 525; x += 18) {
+        planBox(furniture, x, 905, x + 8, 919, 1.04, .66, x % 3 ? m.sage : m.fabric);
+      }
+      planBox(furniture, 73, 895, 119, 924, 0, .82, m.sage, true);
+      planBox(furniture, 72, 894, 120, 925, .82, .045, m.white);
+      cylinder(furniture, X(95), .869, Z(910), .19, .018, m.metal);
+      cylinder(furniture, X(95), .96, Z(920), .018, .17, m.metal);
+      planBox(furniture, 76, 788, 117, 806, 0, .75, m.white, true);
+      cylinder(furniture, X(96), .23, Z(816), .17, .46, m.white);
+      const seat = cylinder(furniture, X(96), .46, Z(818), .235, .06, m.white); seat.scale.z = 1.25;
+      cylinder(furniture, X(96), .495, Z(818), .145, .008, m.dark);
+      const showerLeft = bathroomLeft + 6;
+      const showerRight = showerLeft + 1.05 / scale;
+      const showerTop = 790;
+      const showerBottom = showerTop + 1.2 / scale;
+      planBox(furniture, showerLeft, showerTop, showerRight, showerBottom, .008, .025, m.white);
+      planBox(furniture, showerLeft, showerTop, showerLeft + 2, showerBottom, .033, 2.15, m.tile);
+      for (const z of [showerTop, showerBottom]) {
+        planBox(furniture, showerLeft, z, showerRight, z + 1, .033, 2.05, m.glass, true);
+        planBox(furniture, showerLeft, z, showerRight, z + 1, 2.083, .025, m.metal);
+        planBox(furniture, showerRight - 1, z, showerRight + 1, z + 1, .033, 2.05, m.metal);
+      }
+      // A short fixed screen leaves the shower's right side open toward the bathroom door.
+      planBox(furniture, showerRight, showerTop, showerRight + 1, showerTop + 18, .033, 2.05, m.glass, true);
+      cylinder(furniture, X(showerLeft + 4), 1.25, Z(823), .018, 1.65, m.metal);
+      box(furniture, X(showerLeft + 11), 2.065, Z(823), .25, .025, .025, m.metal);
+      cylinder(furniture, X(showerLeft + 18), 2.045, Z(823), .13, .035, m.metal);
+      box(furniture, X(showerLeft + 6), 1.05, Z(823), .07, .13, .16, m.metal);
+      cylinder(furniture, X(showerLeft + 29), .036, Z(823), .045, .006, m.metal);
+
+      function plant(px, pz) {
+        cylinder(furniture, X(px), .18, Z(pz), .17, .36, mat('#9b7660'));
+        for (let i = 0; i < 7; i++) {
+          const leaf = new T.Mesh(new T.SphereGeometry(.13, 12, 8), m.sage);
+          const angle = i * 2.4;
+          leaf.scale.set(1, 2.5, .45); leaf.rotation.z = Math.sin(angle) * .6;
+          leaf.position.set(X(px) + Math.cos(angle) * .12, .52 + i % 3 * .1, Z(pz) + Math.sin(angle) * .12);
+          furniture.add(leaf);
+        }
+      }
+      plant(223, 602); plant(623, 220);
+      function label(text, px, pz, width) {
+        const c = document.createElement('canvas'); c.width = 512; c.height = 96;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#203a30'; ctx.font = '600 32px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(text.toUpperCase(), 256, 48);
+        const mesh = new T.Mesh(new T.PlaneGeometry(width, width * 96 / 512),
+          new T.MeshBasicMaterial({ map: new T.CanvasTexture(c), transparent: true, depthTest: false }));
+        mesh.rotation.x = -Math.PI / 2; mesh.position.set(X(px), wallHeight + .12, Z(pz)); mesh.renderOrder = 5; labels.add(mesh);
+      }
+      label('Kitchen', 378, 254, 1.9); label('Dining', 350, 457, 1.6);
+      label('Living', 398, 598, 1.6); label('Bedroom', 436, 663, 1.7);
+      label('Bath', (bathroomLeft + 171) / 2, 878, 1.4); label('Laundry', 231, 873, 1.35);
+      label('Wardrobe', 423, 887, 1.55); label('Separate room', 598, 369, 1.8);
+
+      scene.add(new T.HemisphereLight('#fff7df', '#788a77', 2.4));
+      const sun = new T.DirectionalLight('#fff1d2', 3);
+      sun.position.set(-5, 13, -5); sun.target.position.set(3, 0, 7); sun.castShadow = true;
+      sun.shadow.mapSize.set(2048, 2048);
+      Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: .5, far: 45 });
+      sun.shadow.normalBias = .035;
+      scene.add(sun, sun.target);
+      for (const [x, z] of [[350, 300], [350, 533], [435, 738], [110, 850], [595, 320]]) {
+        const light = new T.PointLight('#fff0d2', 10, 6, 2); light.position.set(X(x), 2.35, Z(z)); scene.add(light);
+      }
+
+      const center = new T.Vector3(X(359), .5, Z(562));
+      let mode = 'overview', yaw = 0, pitch = 0;
+      let orbitYaw = -.65, orbitPitch = .88, orbitDistance = 21;
+      let topSpan = 16.5;
+      const player = new T.Vector3(X(353), 1.62, Z(576));
+      const keys = new Set(), moves = new Map(), pointers = new Map();
+      const buttons = Object.fromEntries(['overview', 'top', 'walk'].map(id => [id, document.getElementById(id)]));
+      const guide = document.querySelector('#guide');
+      const isTouch = matchMedia('(pointer: coarse)');
+      function releaseInputs() {
+        keys.clear(); moves.clear(); pointers.clear();
+        document.querySelectorAll('.pad button').forEach(button => button.classList.remove('active'));
+      }
+      function setMode(next) {
+        mode = next; releaseInputs();
+        if (document.pointerLockElement) document.exitPointerLock();
+        document.body.classList.toggle('walking', mode === 'walk');
+        document.querySelector('#crosshair').style.display = mode === 'walk' ? 'block' : 'none';
+        labels.visible = mode !== 'walk';
+        for (const [id, button] of Object.entries(buttons)) button.setAttribute('aria-pressed', String(id === mode));
+        guide.textContent = mode === 'walk'
+          ? 'WASD / arrows to move · Shift to hurry · Click view for mouse look (or drag) · Esc releases mouse.'
+          : mode === 'top' ? 'Scroll or pinch to zoom · Furniture can be hidden for a clear floor plan.'
+            : 'Drag to orbit · Scroll or pinch to zoom · Choose Walk inside to explore.';
+        if (mode === 'walk') canvas.focus({ preventScroll: true });
+        updateView();
+      }
+      function resetView() {
+        if (mode === 'walk') { player.set(X(353), 1.62, Z(576)); yaw = 0; pitch = 0; }
+        else { orbitYaw = -.65; orbitPitch = .88; orbitDistance = 21; topSpan = 16.5; }
+        releaseInputs();
+        if (mode === 'walk') canvas.focus({ preventScroll: true });
+        updateView();
+      }
+      for (const [id, button] of Object.entries(buttons)) button.addEventListener('click', () => setMode(id));
+      document.querySelector('#reset').addEventListener('click', resetView);
+      document.querySelector('#furniture').addEventListener('change', event => {
+        furniture.visible = event.target.checked;
+        if (mode === 'walk') canvas.focus({ preventScroll: true });
+      });
+      function resize() {
+        renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix(); updateView();
+      }
+      function updateView() {
+        if (mode === 'walk') {
+          camera.position.copy(player); camera.rotation.set(pitch, yaw, 0, 'YXZ');
+        } else if (mode === 'overview') {
+          const distance = orbitDistance * Math.max(1, .95 / camera.aspect);
+          camera.position.set(center.x + Math.sin(orbitYaw) * Math.cos(orbitPitch) * distance,
+            center.y + Math.sin(orbitPitch) * distance, center.z + Math.cos(orbitYaw) * Math.cos(orbitPitch) * distance);
+          camera.lookAt(center);
+        } else {
+          const aspect = innerWidth / innerHeight;
+          const planWidth = Math.max(center.x - X(bathroomLeft), X(656) - center.x) * 2 + 1.2;
+          const height = Math.max(topSpan, topSpan * planWidth / 16.5 / aspect);
+          topCamera.left = -height * aspect / 2; topCamera.right = height * aspect / 2;
+          topCamera.top = height / 2; topCamera.bottom = -height / 2;
+          topCamera.position.set(center.x, 28, center.z); topCamera.up.set(0, 0, -1); topCamera.lookAt(center.x, 0, center.z);
+          topCamera.updateProjectionMatrix();
+        }
+      }
+      addEventListener('resize', resize);
+      const movementKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'];
+      addEventListener('keydown', event => {
+        if (mode !== 'walk' || /INPUT|BUTTON/.test(event.target.tagName)) return;
+        if (movementKeys.includes(event.code)) { event.preventDefault(); keys.add(event.code); }
+      });
+      addEventListener('keyup', event => keys.delete(event.code));
+      addEventListener('blur', releaseInputs);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) releaseInputs(); });
+      document.addEventListener('pointerlockchange', releaseInputs);
+      document.addEventListener('pointerlockerror', () => {
+        console.warn('Pointer lock was declined; drag-to-look remains available.');
+        guide.textContent = 'Mouse capture unavailable here. Drag to look · WASD / arrows to move.';
+      });
+      function look(dx, dy) { yaw -= dx * .003; pitch = T.MathUtils.clamp(pitch - dy * .003, -1.35, 1.35); }
+      canvas.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        canvas.focus({ preventScroll: true });
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        canvas.setPointerCapture(event.pointerId);
+      });
+      canvas.addEventListener('click', () => {
+        if (mode === 'walk' && !isTouch.matches && !document.pointerLockElement) {
+          if (canvas.requestPointerLock) {
+            const request = canvas.requestPointerLock();
+            if (request?.catch) request.catch(error => {
+              console.warn('Pointer lock request failed:', error);
+              guide.textContent = 'Mouse capture unavailable here. Drag to look · WASD / arrows to move.';
+            });
+          } else guide.textContent = 'Drag to look · WASD / arrows to move.';
+        }
+      });
+      canvas.addEventListener('pointermove', event => {
+        if (document.pointerLockElement === canvas) { if (mode === 'walk') look(event.movementX, event.movementY); return; }
+        const previous = pointers.get(event.pointerId);
+        if (!previous) return;
+        const dx = event.clientX - previous.x, dy = event.clientY - previous.y;
+        if (pointers.size === 2 && mode !== 'walk') {
+          const other = [...pointers.entries()].find(([id]) => id !== event.pointerId)[1];
+          const before = Math.hypot(previous.x - other.x, previous.y - other.y);
+          const after = Math.hypot(event.clientX - other.x, event.clientY - other.y);
+          if (before > 0 && after > 0) zoom(before / after);
+        } else if (mode === 'walk') look(dx, dy);
+        else if (mode === 'overview') {
+          orbitYaw -= dx * .006; orbitPitch = T.MathUtils.clamp(orbitPitch + dy * .004, .2, 1.48);
+        }
+        pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      });
+      for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(event, e => pointers.delete(e.pointerId));
+      function zoom(factor) {
+        if (mode === 'top') topSpan = T.MathUtils.clamp(topSpan * factor, 5, 28);
+        else orbitDistance = T.MathUtils.clamp(orbitDistance * factor, 8, 38);
+        updateView();
+      }
+      canvas.addEventListener('wheel', event => {
+        event.preventDefault(); if (mode !== 'walk') zoom(Math.exp(event.deltaY * .001));
+      }, { passive: false });
+      document.querySelectorAll('[data-move]').forEach(button => {
+        button.addEventListener('pointerdown', event => {
+          event.preventDefault(); button.setPointerCapture(event.pointerId);
+          moves.set(event.pointerId, button.dataset.move); button.classList.add('active');
+        });
+        for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(event, e => {
+          moves.delete(e.pointerId);
+          if (![...moves.values()].includes(button.dataset.move)) button.classList.remove('active');
+        });
+      });
+      function blocked(x, z) {
+        const radius = .19;
+        if (x < X(bathroomLeft) - 2.5 || x > 10.5 || z < -3 || z > 16) return true;
+        return colliders.some(c => {
+          if (c.furniture && !furniture.visible) return false;
+          const nearestX = T.MathUtils.clamp(x, c.x1, c.x2);
+          const nearestZ = T.MathUtils.clamp(z, c.z1, c.z2);
+          return (nearestX - x) ** 2 + (nearestZ - z) ** 2 < radius ** 2;
+        });
+      }
+      function movePlayer(dt) {
+        const held = name => [...moves.values()].includes(name);
+        let forward = Number(keys.has('KeyW') || keys.has('ArrowUp') || held('forward')) - Number(keys.has('KeyS') || keys.has('ArrowDown') || held('back'));
+        let right = Number(keys.has('KeyD') || keys.has('ArrowRight') || held('right')) - Number(keys.has('KeyA') || keys.has('ArrowLeft') || held('left'));
+        const length = Math.hypot(forward, right);
+        if (!length) return;
+        forward /= length; right /= length;
+        const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') ? 3.6 : 2;
+        const dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * right) * speed * dt;
+        const dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * right) * speed * dt;
+        const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / .07));
+        for (let i = 0; i < steps; i++) {
+          if (!blocked(player.x + dx / steps, player.z)) player.x += dx / steps;
+          if (!blocked(player.x, player.z + dz / steps)) player.z += dz / steps;
+        }
+      }
+      const map = document.querySelector('#map'), ctx = map.getContext('2d');
+      let previousRoom = '';
+      function drawMap() {
+        const px = player.x / scale + 171, pz = player.z / scale + 190;
+        const name = mode !== 'walk' ? 'Whole home'
+          : px > 539 && px < 656 && pz > 190 && pz < 469 ? 'Separate room'
+          : px > bathroomLeft && px < 171 && pz > 785 && pz < 932 ? 'Bathroom'
+          : px >= 171 && px <= 539 && pz >= 190 && pz <= 932
+            ? pz > 858 ? (px < 292 ? 'Laundry' : 'Wardrobe')
+              : px > 292 && pz > 626 ? 'Bedroom'
+                : pz < 328 ? 'Kitchen' : pz < 467 ? 'Dining room' : 'Living room'
+            : 'Outside';
+        if (name !== previousRoom) { document.querySelector('#room').textContent = name; previousRoom = name; }
+        ctx.clearRect(0, 0, map.width, map.height);
+        const s = Math.min(.43, (map.width - 12) / (656 - bathroomLeft)), ox = 6, oz = 31;
+        const mx = x => (x - bathroomLeft) * s + ox, mz = z => (z - 190) * s + oz;
+        ctx.fillStyle = '#c4caba';
+        ctx.fillRect(mx(171), mz(190), 368 * s, 742 * s);
+        ctx.fillStyle = '#93ab9b';
+        ctx.fillRect(mx(539), mz(190), 117 * s, 279 * s);
+        ctx.fillRect(mx(bathroomLeft), mz(785), (171 - bathroomLeft) * s, 147 * s);
+        ctx.strokeStyle = '#eaf1e4'; ctx.lineWidth = 1;
+        ctx.strokeRect(mx(showerLeft), mz(showerTop), (showerRight - showerLeft) * s, (showerBottom - showerTop) * s);
+        ctx.strokeStyle = '#31483e'; ctx.lineWidth = 3; ctx.lineCap = 'square';
+        for (const [x1, z1, x2, z2] of wallLines) {
+          ctx.beginPath(); ctx.moveTo(mx(x1), mz(z1)); ctx.lineTo(mx(x2), mz(z2)); ctx.stroke();
+        }
+        ctx.fillStyle = '#c4d8c3'; ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillText('PLAN  ↑', 134, 15);
+        if (mode === 'walk') {
+          const x = mx(px), z = mz(pz);
+          ctx.save(); ctx.beginPath(); ctx.rect(0, 0, map.width, map.height); ctx.clip();
+          ctx.fillStyle = '#1d6457'; ctx.beginPath();
+          ctx.moveTo(x, z); ctx.arc(x, z, 19, -yaw - Math.PI / 2 - .45, -yaw - Math.PI / 2 + .45); ctx.closePath(); ctx.fill();
+          ctx.beginPath(); ctx.arc(x, z, 5, 0, Math.PI * 2); ctx.fillStyle = '#fff4bd'; ctx.fill(); ctx.strokeStyle = '#24483b'; ctx.lineWidth = 2; ctx.stroke();
+          ctx.restore();
+        }
+      }
+      canvas.addEventListener('webglcontextlost', event => {
+        event.preventDefault(); reportError('The graphics context was lost. Reload this file to restart the walkthrough.', new Error('WebGL context lost'));
+      });
+      resize(); setMode('overview'); status.hidden = true;
+      let last = performance.now();
+      renderer.setAnimationLoop(now => {
+        const dt = Math.min((now - last) / 1000, .05); last = now;
+        if (mode === 'walk') movePlayer(dt);
+        updateView(); drawMap(); renderer.render(scene, mode === 'top' ? topCamera : camera);
+      });
+    }
+  </script>
+</body>
+</html>
